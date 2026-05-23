@@ -1,18 +1,43 @@
-# Build stage
-FROM eclipse-temurin:17-jdk AS builder
+# ============================================================
+# Stage 1: Build the Spring Boot application using Maven
+# ============================================================
+
+FROM eclipse-temurin:25-jdk AS builder
+
+# Set working directory
 WORKDIR /app
 
-COPY . .
-RUN chmod +x mvnw && ./mvnw -DskipTests clean package
+# Copy Maven wrapper files
+COPY mvnw .
+COPY .mvn .mvn
 
-# Runtime stage
-FROM eclipse-temurin:17-jre
+# Copy pom.xml
+COPY pom.xml .
+
+# Copy source code
+COPY src src
+
+# Give executable permission
+RUN chmod +x mvnw
+
+# Build the application
+RUN ./mvnw clean package -DskipTests
+
+
+# ============================================================
+# Stage 2: Runtime Image
+# ============================================================
+
+FROM eclipse-temurin:25-jre
+
+# Set working directory
 WORKDIR /app
 
-COPY --from=builder /app/target/art-connect-0.0.1-SNAPSHOT.jar app.jar
+# Copy generated jar
+COPY --from=builder /app/target/*.jar app.jar
 
-EXPOSE 8080
+# Expose Spring Boot port
+EXPOSE 9090
 
-# Render provides PORT dynamically; fallback to 8080 for local runs.
-ENTRYPOINT ["sh", "-c", "java -Dserver.port=${PORT:-8080} -jar app.jar"]
-
+# Run the application
+ENTRYPOINT ["java", "-jar", "app.jar"]
